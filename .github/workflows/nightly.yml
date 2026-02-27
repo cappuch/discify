@@ -1,0 +1,83 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags="-s -w" -o discify${{ matrix.ext }} .
+
+      - name: Package
+        run: |
+          dirname="discify-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir "$dirname"
+          cp discify${{ matrix.ext }} "$dirname/"
+          cp -r static "$dirname/"
+          tar czf "$dirname.tar.gz" "$dirname"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discify-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: discify-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Delete previous nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release delete nightly --yes --cleanup-tag 2>/dev/null || true
+
+      - name: Create nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create nightly artifacts/*.tar.gz \
+            --title "Nightly Build" \
+            --notes "Automated nightly build from \`main\` — $(date -u +%Y-%m-%d)" \
+            --prerelease

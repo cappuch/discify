@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discify - Lyrics</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <div class="screen lyrics-screen">
+    <div class="titlebar">
+      <span class="titlebar-text"><span class="titlebar-icon">D</span> lyrics.exe</span>
+      <div class="titlebar-buttons">
+        <span class="titlebar-btn">_</span>
+        <span class="titlebar-btn">&#9633;</span>
+        <span class="titlebar-btn">X</span>
+      </div>
+    </div>
+    <div class="screen-body">
+
+      <div id="lyrics-scroll" class="lyrics-scroll">
+        <div id="lyrics-content" class="lyrics-content">
+          <p class="lyrics-empty">Play something on Spotify</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var BREAK_THRESHOLD = 7500;
+
+  var scrollEl = document.getElementById("lyrics-scroll");
+  var contentEl = document.getElementById("lyrics-content");
+
+  var currentTrackId = null;
+  var isPlaying = false;
+  var progressMs = 0;
+  var durationMs = 0;
+  var lastPollTime = 0;
+  var lines = [];
+  var synced = false;
+  var activeIdx = -1;
+  var breakEls = []; // {startMs, endMs, el}
+
+  function formatCountdown(ms) {
+    var sec = Math.ceil(ms / 1000);
+    return sec + "s";
+  }
+
+  function getPosition() {
+    if (!isPlaying) return progressMs;
+    var elapsed = performance.now() - lastPollTime;
+    return Math.min(progressMs + elapsed, durationMs);
+  }
+
+  function renderLines() {
+    contentEl.innerHTML = "";
+    breakEls = [];
+    if (lines.length === 0) {
+      contentEl.innerHTML = '<p class="lyrics-empty">No lyrics available</p>';
+      return;
+    }
+    for (var i = 0; i < lines.length; i++) {
+      if (synced && i > 0) {
+        var gap = lines[i].time_ms - lines[i - 1].time_ms;
+        if (gap >= BREAK_THRESHOLD) {
+          var brk = document.createElement("div");
+          brk.className = "lyrics-break future";
+
+          var label = document.createElement("span");
+          label.className = "lyrics-break-label";
+          label.textContent = "- " + formatCountdown(gap) + " -";
+
+          var bar = document.createElement("div");
+          bar.className = "lyrics-break-bar";
+          var fill = document.createElement("div");
+          fill.className = "lyrics-break-fill";
+          bar.appendChild(fill);
+
+          brk.appendChild(label);
+          brk.appendChild(bar);
+          contentEl.appendChild(brk);
+          breakEls.push({
+            startMs: lines[i - 1].time_ms,
+            endMs: lines[i].time_ms,
+            el: brk,
+            labelEl: label,
+            fillEl: fill,
+          });
+        }
+      }
+
+      var div = document.createElement("div");
+      div.className = "lyrics-line future";
+      div.textContent = lines[i].text || "\u00a0";
+      div.dataset.idx = i;
+      contentEl.appendChild(div);
+    }
+  }
+
+  function findActiveLine(posMs) {
+    if (!synced || lines.length === 0) return -1;
+    var idx = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].time_ms <= posMs) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  }
+
+  function updateBreaks(pos) {
+    for (var i = 0; i < breakEls.length; i++) {
+      var b = breakEls[i];
+      var total = b.endMs - b.startMs;
+      if (pos >= b.startMs && pos < b.endMs) {
+        var remaining = b.endMs - pos;
+        var pct = ((pos - b.startMs) / total) * 100;
+        b.labelEl.textContent = "- " + formatCountdown(remaining) + " -";
+        b.fillEl.style.width = pct + "%";
+        b.el.className = "lyrics-break active";
+      } else if (pos >= b.endMs) {
+        b.fillEl.style.width = "100%";
+        b.el.className = "lyrics-break past";
+      } else {
+        b.fillEl.style.width = "0%";
+        b.el.className = "lyrics-break future";
+      }
+    }
+  }
+
+  function updateHighlight() {
+    if (!synced) return;
+    var pos = getPosition();
+    var idx = findActiveLine(pos);
+
+    updateBreaks(pos);
+
+    if (idx === activeIdx) return;
+    activeIdx = idx;
+
+    var children = contentEl.querySelectorAll(".lyrics-line");
+    for (var i = 0; i < children.length; i++) {
+      var el = children[i];
+      if (i < idx) {
+        el.className = "lyrics-line past";
+      } else if (i === idx) {
+        el.className = "lyrics-line active";
+      } else {
+        el.className = "lyrics-line future";
+      }
+    }
+
+    if (idx >= 0 && children[idx]) {
+      var line = children[idx];
+      var containerH = scrollEl.clientHeight;
+      var lineTop = line.offsetTop;
+      var lineH = line.offsetHeight;
+      scrollEl.scrollTo({
+        top: lineTop - containerH / 2 + lineH / 2,
+        behavior: "smooth",
+      });
+    }
+  }
+
+  function animate() {
+    requestAnimationFrame(animate);
+    updateHighlight();
+  }
+
+  async function fetchLyrics(track, artist, album, dur) {
+    var params = new URLSearchParams({
+      track: track,
+      artist: artist,
+    });
+    if (album) params.set("album", album);
+    if (dur) params.set("duration", String(dur));
+
+    try {
+      var resp = await fetch("/api/lyrics?" + params.toString());
+      if (!resp.ok) return;
+      var data = await resp.json();
+      synced = data.synced;
+      lines = data.lines || [];
+      activeIdx = -1;
+      renderLines();
+
+      if (!synced && lines.length > 0) {
+        var children = contentEl.querySelectorAll(".lyrics-line");
+        for (var i = 0; i < children.length; i++) {
+          children[i].className = "lyrics-line past";
+        }
+      }
+    } catch {
+      lines = [];
+      synced = false;
+      renderLines();
+    }
+  }
+
+  async function poll() {
+    try {
+      var resp = await fetch("/api/now-playing");
+      if (resp.status === 401 || !resp.ok) return;
+
+      var data = await resp.json();
+
+      if (!data.item) {
+        isPlaying = false;
+        if (currentTrackId !== null) {
+          currentTrackId = null;
+          lines = [];
+          synced = false;
+          activeIdx = -1;
+          contentEl.innerHTML = '<p class="lyrics-empty">Play something on Spotify</p>';
+        }
+        return;
+      }
+
+      isPlaying = data.is_playing;
+      progressMs = data.progress_ms || 0;
+      durationMs = data.item.duration_ms || 0;
+      lastPollTime = performance.now();
+
+      var trackId = data.item.id;
+      if (trackId !== currentTrackId) {
+        currentTrackId = trackId;
+
+        contentEl.innerHTML = '<p class="lyrics-empty">Loading lyrics...</p>';
+
+        fetchLyrics(
+          data.item.name,
+          (data.item.artists || []).map(function (a) { return a.name; }).join(", "),
+          data.item.album ? data.item.album.name : "",
+          durationMs
+        );
+      }
+    } catch {}
+  }
+
+  poll();
+  setInterval(poll, 3000);
+  requestAnimationFrame(animate);
+})();
+</script>
+
+</body>
+</html>

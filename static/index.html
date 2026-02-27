@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discify</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Login screen -->
+  <div id="login-screen" class="screen">
+    <div class="titlebar">
+      <span class="titlebar-text"><span class="titlebar-icon">D</span> discify.exe</span>
+      <div class="titlebar-buttons">
+        <span class="titlebar-btn">_</span>
+        <span class="titlebar-btn">&#9633;</span>
+        <span class="titlebar-btn">X</span>
+      </div>
+    </div>
+    <div class="screen-body">
+      <div class="login-container">
+        <h1 class="logo">discify</h1>
+        <p class="subtitle">spotify visualizer</p>
+        <a href="/auth/login" class="login-btn">Connect to Spotify</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Player screen -->
+  <div id="player-screen" class="screen hidden">
+    <div class="titlebar">
+      <span class="titlebar-text"><span class="titlebar-icon">D</span> Now Playing</span>
+      <div class="titlebar-buttons">
+        <span class="titlebar-btn">_</span>
+        <span class="titlebar-btn">&#9633;</span>
+        <span class="titlebar-btn">X</span>
+      </div>
+    </div>
+    <div class="screen-body">
+
+      <!-- Nothing playing state -->
+      <div id="nothing-playing" class="hidden">
+        <p class="nothing-text">Nothing playing right now</p>
+        <p class="nothing-sub">Play something on Spotify to get started</p>
+      </div>
+
+      <!-- Now playing state -->
+      <div id="now-playing">
+        <div class="vinyl-container">
+          <div class="vinyl" id="vinyl">
+            <img id="album-art" src="" alt="Album art">
+            <div class="vinyl-hole"></div>
+            <div class="vinyl-groove vinyl-groove-1"></div>
+            <div class="vinyl-groove vinyl-groove-2"></div>
+            <div class="vinyl-groove vinyl-groove-3"></div>
+          </div>
+        </div>
+
+        <div class="track-details">
+          <div class="track-info">
+            <h2 id="track-name" class="track-name">—</h2>
+            <p id="artist-name" class="artist-name">—</p>
+            <p id="album-name" class="album-name">—</p>
+            <p id="release-date" class="release-date"></p>
+          </div>
+
+          <div class="progress-container">
+            <span id="elapsed" class="time">0:00</span>
+            <div class="progress-bar">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <span id="duration" class="time">0:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="island" class="island hidden">
+    <span id="island-text"></span>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

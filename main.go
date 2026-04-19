@@ -191,10 +191,16 @@ func loadSessions() {
 	json.Unmarshal(data, &sessions)
 
 	active, err := os.ReadFile(activeSessionFile)
-	if err == nil {
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("Failed to read active session: %v", err)
+		}
+	} else {
 		id := strings.TrimSpace(string(active))
 		if _, ok := sessions[id]; ok {
 			activeSessionID = id
+		} else if id != "" {
+			log.Printf("Saved active session id not found in sessions map")
 		}
 	}
 
@@ -212,11 +218,10 @@ func saveSessions() {
 	os.WriteFile(sessionsFile, data, 0600)
 }
 
-func saveActiveSessionID() {
-	sessionsMu.RLock()
-	id := activeSessionID
-	sessionsMu.RUnlock()
-	os.WriteFile(activeSessionFile, []byte(id), 0600)
+func saveActiveSessionID(id string) {
+	if err := os.WriteFile(activeSessionFile, []byte(id), 0600); err != nil {
+		log.Printf("Failed to persist active session id: %v", err)
+	}
 }
 
 func newSessionID() string {
@@ -237,7 +242,11 @@ func getSession(r *http.Request) *Session {
 	if activeSessionID == "" {
 		return nil
 	}
-	return sessions[activeSessionID]
+	sess, ok := sessions[activeSessionID]
+	if !ok {
+		return nil
+	}
+	return sess
 }
 
 func setSession(w http.ResponseWriter, sess *Session) string {
@@ -255,7 +264,7 @@ func setSession(w http.ResponseWriter, sess *Session) string {
 		MaxAge:   86400 * 365,
 	})
 	saveSessions()
-	saveActiveSessionID()
+	saveActiveSessionID(id)
 	return id
 }
 

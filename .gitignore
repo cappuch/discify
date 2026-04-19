@@ -1,3 +1,5 @@
 sessions.json
+active_session.txt
+discify
 .env
 .claude/

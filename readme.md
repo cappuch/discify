@@ -14,6 +14,7 @@ by no means is this a proper functional app, it's mostly meant for OBS/streaming
 4. run `go run main.go`
 5. open `http://localhost:8080` in your browser
 6. click "connect to spotify" and follow the instructions
+7. once one browser logs in, other clients on the same discify server (like OBS browser source) can use that authenticated session without logging in again
 
 ### routes:
 - `/` - home page

@@ -200,7 +200,7 @@ func loadSessions() {
 		if _, ok := sessions[id]; ok {
 			activeSessionID = id
 		} else if id != "" {
-			log.Printf("Saved active session id not found in sessions map")
+			log.Printf("Saved active session ID not found in sessions map")
 		}
 	}
 
@@ -242,11 +242,7 @@ func getSession(r *http.Request) *Session {
 	if activeSessionID == "" {
 		return nil
 	}
-	sess, ok := sessions[activeSessionID]
-	if !ok {
-		return nil
-	}
-	return sess
+	return sessions[activeSessionID]
 }
 
 func setSession(w http.ResponseWriter, sess *Session) string {

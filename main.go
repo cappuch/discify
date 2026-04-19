@@ -26,6 +26,7 @@ type Session struct {
 }
 
 const sessionsFile = "sessions.json"
+const activeSessionFile = "active_session.txt"
 const configFile = "config.json"
 
 type Config struct {
@@ -43,8 +44,9 @@ var (
 	redirectURI  = "http://127.0.0.1:8080/auth/callback"
 	scopes       = "user-read-currently-playing user-read-playback-state"
 
-	sessions   = map[string]*Session{}
-	sessionsMu sync.RWMutex
+	sessions        = map[string]*Session{}
+	activeSessionID string
+	sessionsMu      sync.RWMutex
 )
 
 func main() {
@@ -187,6 +189,21 @@ func loadSessions() {
 	sessionsMu.Lock()
 	defer sessionsMu.Unlock()
 	json.Unmarshal(data, &sessions)
+
+	active, err := os.ReadFile(activeSessionFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("Failed to read active session: %v", err)
+		}
+	} else {
+		id := strings.TrimSpace(string(active))
+		if _, ok := sessions[id]; ok {
+			activeSessionID = id
+		} else if id != "" {
+			log.Printf("Saved active session ID not found in sessions map")
+		}
+	}
+
 	log.Printf("Loaded %d saved session(s)", len(sessions))
 }
 
@@ -201,6 +218,12 @@ func saveSessions() {
 	os.WriteFile(sessionsFile, data, 0600)
 }
 
+func saveActiveSessionID(id string) {
+	if err := os.WriteFile(activeSessionFile, []byte(id), 0600); err != nil {
+		log.Printf("Failed to persist active session ID: %v", err)
+	}
+}
+
 func newSessionID() string {
 	b := make([]byte, 32)
 	rand.Read(b)
@@ -209,18 +232,24 @@ func newSessionID() string {
 
 func getSession(r *http.Request) *Session {
 	cookie, err := r.Cookie("discify_session")
-	if err != nil {
-		return nil
-	}
 	sessionsMu.RLock()
 	defer sessionsMu.RUnlock()
-	return sessions[cookie.Value]
+	if err == nil {
+		if sess, ok := sessions[cookie.Value]; ok {
+			return sess
+		}
+	}
+	if activeSessionID == "" {
+		return nil
+	}
+	return sessions[activeSessionID]
 }
 
 func setSession(w http.ResponseWriter, sess *Session) string {
 	id := newSessionID()
 	sessionsMu.Lock()
 	sessions[id] = sess
+	activeSessionID = id
 	sessionsMu.Unlock()
 	http.SetCookie(w, &http.Cookie{
 		Name:     "discify_session",
@@ -231,6 +260,7 @@ func setSession(w http.ResponseWriter, sess *Session) string {
 		MaxAge:   86400 * 365,
 	})
 	saveSessions()
+	saveActiveSessionID(id)
 	return id
 }
 
@@ -382,7 +412,6 @@ func handleSessionImport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write([]byte(`{"ok":true}`))
 }
-
 
 type LyricLine struct {
 	TimeMs int    `json:"time_ms"`

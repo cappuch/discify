@@ -220,7 +220,7 @@ func saveSessions() {
 
 func saveActiveSessionID(id string) {
 	if err := os.WriteFile(activeSessionFile, []byte(id), 0600); err != nil {
-		log.Printf("Failed to persist active session id: %v", err)
+		log.Printf("Failed to persist active session ID: %v", err)
 	}
 }
 

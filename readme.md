@@ -7,6 +7,9 @@ a lightweight web app that shows:
 
 by no means is this a proper functional app, it's mostly meant for OBS/streaming purposes, and is not meant to be used as a standalone app.
 
+<img width="777" height="270" alt="{D8F76417-5613-4C38-9F31-FEA4227E3225}" src="https://github.com/user-attachments/assets/a95da6b9-29ac-411c-9ef5-1742c6ec59da" />
+<img width="524" height="521" alt="{3D9C8791-B2AB-4E24-A58D-C02A508FC9DA}" src="https://github.com/user-attachments/assets/47d840a5-0290-4280-a27b-35f5da326409" />
+
 ## how to run
 1. clone the repo
 2. create a spotify app and set the redirect URI to `http://127.0.0.1:8080/callback` !! this is important !! (go to here: [https://developer.spotify.com/dashboard/applications](https://developer.spotify.com/dashboard/applications), create an app, then go to "edit settings" and add the redirect URI)
